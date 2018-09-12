@@ -1,3 +1,4 @@
+#! /usr/bin/python3
 # < begin copyright > 
 # Copyright Ryan Marcus 2016, 2017, 2018
 # 
