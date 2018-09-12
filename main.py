@@ -1,5 +1,5 @@
 # < begin copyright > 
-# Copyright Ryan Marcus 2016
+# Copyright Ryan Marcus 2016, 2017, 2018
 # 
 # This file is part of tex2svg.
 # 
@@ -23,14 +23,20 @@ import sqlite3
 import sys
 import os.path
 import os
+import sys
 import subprocess
 
 conn = sqlite3.connect(os.path.expanduser('~/.tex2svg/tex2svg.db'))
 c = conn.cursor()
-c.execute("""CREATE TABLE IF NOT EXISTS items (latex text, svg text);""")
+c.execute("""CREATE TABLE IF NOT EXISTS items (latex text, inline  integer, svg text);""")
+
+inline = 1
+if len(sys.argv) == 2 and sys.argv[1] == "--block":
+    inline = 0
+
 
 tex = str(sys.stdin.read()).strip()
-c.execute("SELECT svg from items WHERE latex=?", (tex,))
+c.execute("SELECT svg from items WHERE latex=? AND inline=?", (tex,inline))
 cached_result = c.fetchone()
 
 if cached_result:
@@ -40,7 +46,8 @@ if cached_result:
     
 # we need to create the result and cache it
 with open(os.path.expanduser('~/.tex2svg/tmp.tex'), "w") as f:
-    f.write("""
+    if inline == 1:
+        f.write("""
 \\documentclass{article}
 \\usepackage{amsmath}
 \\usepackage{amssymb}
@@ -49,11 +56,23 @@ with open(os.path.expanduser('~/.tex2svg/tmp.tex'), "w") as f:
 $$""" + tex + """$$
 \\end{document}
 """)
+    else:
+        f.write("""
+\\documentclass{article}
+\\usepackage{amsmath}
+\\usepackage{amssymb}
+\\begin{document}
+\\pagestyle{empty}
+\\begin{equation*}
+""" + tex + """
+\\end{equation*}
+\\end{document}
+""")
 os.system("pdflatex -output-directory ~/.tex2svg/ tmp.tex &> /dev/null")
 os.system("pdfcrop ~/.tex2svg/tmp.pdf ~/.tex2svg/tmp_crop.pdf &> /dev/null")
 os.system("pdf2svg ~/.tex2svg/tmp_crop.pdf ~/.tex2svg/tmp.svg &> /dev/null")
 svg = subprocess.check_output("svgo --output - --input ~/.tex2svg/tmp.svg", shell=True).decode("utf-8")
-c.execute("INSERT INTO items VALUES(?, ?)", (tex, svg))
+c.execute("INSERT INTO items VALUES(?, ?, ?)", (tex, inline, svg))
 print(svg)
 conn.commit()
 conn.close()
