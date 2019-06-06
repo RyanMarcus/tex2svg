@@ -1,5 +1,9 @@
 # tex2svg
 
+```bash
+pip3 install tex2svg
+```
+
 A simple program to convert a LaTeX equations to SVGs.
 
 ```bash
